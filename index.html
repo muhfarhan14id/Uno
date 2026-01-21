@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Single-File UNO</title>
+    <title>UNO Advanced: Inflation & Combo</title>
     <style>
+        /* --- MENGEMBALIKAN STYLE UI VERSI 1 --- */
         :root {
             --red: #ff5555;
             --green: #55aa55;
             --blue: #5555ff;
             --yellow: #ffaa00;
+            --gold: #ffd700; /* Warna Baru untuk Inflasi */
             --black: #333;
             --bg: #2c3e50;
             --panel: #34495e;
@@ -26,7 +28,7 @@
             overflow: hidden;
         }
 
-        /* --- LAYOUT --- */
+        /* --- LAYOUT UTAMA (SAMA PERSIS DENGAN VERSI 1) --- */
         #game-layout {
             display: flex;
             width: 100%;
@@ -35,6 +37,945 @@
 
         #main-area {
             flex: 3;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #sidebar {
+            flex: 1;
+            background-color: var(--panel);
+            border-left: 2px solid #222;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            max-width: 300px;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        /* --- ZONES --- */
+        .zone {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            position: relative;
+        }
+
+        #ai-zone {
+            flex: 1;
+            flex-wrap: wrap;
+            align-items: flex-start;
+            padding-top: 20px;
+        }
+
+        #table-zone {
+            flex: 1.5;
+            background: rgba(0,0,0,0.1);
+            border-radius: 20px;
+            margin: 10px;
+            display: flex;
+            gap: 40px;
+        }
+
+        #player-zone {
+            flex: 1.2;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            overflow-x: auto;
+            /* Tambahan padding agar kartu tidak terpotong saat naik */
+            padding-top: 40px; 
+        }
+
+        /* --- CARDS & ANIMATIONS --- */
+        .card {
+            width: 80px;
+            height: 120px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 24px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), margin 0.2s;
+            user-select: none;
+            border: 4px solid white;
+            margin: 0 -15px;
+        }
+
+        /* Hover Effect */
+        .card:hover {
+            transform: translateY(-15px) scale(1.05);
+            z-index: 50;
+        }
+
+        /* SELECTION STATE (Fitur Baru) */
+        .card.selected {
+            transform: translateY(-35px) scale(1.1) !important;
+            border-color: #00e5ff; /* Highlight Biru Neon */
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+            z-index: 100 !important;
+        }
+
+        /* PLAY ANIMATION (Kartu Masuk ke Meja) */
+        @keyframes playSwoosh {
+            0% { transform: scale(1.5) translateY(50px); opacity: 0; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+        
+        .card.played-anim {
+            animation: playSwoosh 0.4s ease-out forwards;
+        }
+
+        .card.disabled {
+            filter: grayscale(0.8) brightness(0.7);
+            cursor: not-allowed;
+        }
+
+        .card-inner {
+            width: 80%;
+            height: 85%;
+            border-radius: 50% / 10%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            transform: rotate(-45deg);
+        }
+
+        /* Warna Kartu */
+        .card[data-color="red"] { background-color: var(--red); }
+        .card[data-color="green"] { background-color: var(--green); }
+        .card[data-color="blue"] { background-color: var(--blue); }
+        .card[data-color="yellow"] { background-color: var(--yellow); }
+        .card[data-color="black"] { background-color: var(--black); }
+        
+        /* INFLATION CARD (+100) */
+        .card[data-color="gold"] { 
+            background: linear-gradient(135deg, #ffd700, #ffaa00);
+            border-color: #fffacd;
+        }
+        .card[data-color="gold"] .card-inner {
+            color: #d35400;
+            text-shadow: none;
+            font-size: 20px; /* Sedikit lebih kecil agar muat */
+        }
+
+        .card-back {
+            background: repeating-linear-gradient(45deg, #000, #000 10px, #333 10px, #333 20px);
+            border: 4px solid white;
+        }
+        .card-back .card-inner { display: none; }
+
+        /* Small Cards for AI */
+        .ai-hand {
+            display: flex;
+            margin: 10px;
+            flex-direction: column;
+            align-items: center;
+        }
+        .ai-hand-cards { display: flex; }
+        .ai-card {
+            width: 40px; height: 60px;
+            margin: 0 -20px;
+            border-radius: 5px;
+            font-size: 0;
+            border-width: 2px;
+        }
+
+        /* --- UI ELEMENTS --- */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            transition: background 0.2s;
+        }
+        .btn-primary { background-color: #3498db; color: white; }
+        .btn-danger { background-color: #e74c3c; color: white; }
+        
+        /* TOMBOL KONFIRMASI (Floating) */
+        #confirm-move-btn {
+            position: absolute;
+            bottom: 150px; /* Terapung di atas kartu */
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2ecc71;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border: 2px solid white;
+            display: none; /* Hidden default */
+            z-index: 200;
+            animation: bounceIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes bounceIn { from { transform: translateX(-50%) scale(0); } to { transform: translateX(-50%) scale(1); } }
+
+        #log-container {
+            flex: 1;
+            background: rgba(0,0,0,0.2);
+            overflow-y: auto;
+            padding: 5px;
+            font-size: 12px;
+            font-family: monospace;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #444; padding-bottom: 2px; }
+        .log-entry.important { color: #f1c40f; font-weight: bold; }
+
+        #uno-btn {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            font-weight: 900; font-size: 20px;
+            border: 4px solid white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            position: absolute;
+            right: 20px; bottom: 150px;
+            z-index: 50;
+            cursor: pointer;
+            animation: pulse 2s infinite;
+        }
+        #uno-btn.active { background: #27ae60; border-color: #2ecc71; animation: none; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            min-width: 300px;
+        }
+        .color-picker-btn {
+            width: 60px; height: 60px;
+            margin: 10px;
+            border: 3px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        #turn-indicator {
+            position: absolute;
+            top: 10px; left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 18px;
+        }
+
+        #direction-indicator {
+            font-size: 40px; opacity: 0.2; position: absolute;
+        }
+
+    </style>
+</head>
+<body>
+
+<!-- SETUP MODAL -->
+<div id="setup-modal" class="modal" style="display: flex;">
+    <div class="modal-content">
+        <h2>UNO Setup (+100 & Combo)</h2>
+        <div style="margin-bottom: 15px;">
+            <label>Lawan AI:</label>
+            <select id="ai-count">
+                <option value="1">1 AI</option>
+                <option value="2">2 AI</option>
+                <option value="3" selected>3 AI</option>
+            </select>
+        </div>
+        <div style="margin-bottom: 15px;">
+            <label>Kesulitan:</label>
+            <select id="ai-difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard (Combo)</option>
+            </select>
+        </div>
+        <button class="btn btn-primary" onclick="initGame()">Mulai Game</button>
+    </div>
+</div>
+
+<!-- COLOR PICKER MODAL -->
+<div id="color-modal" class="modal">
+    <div class="modal-content">
+        <h3>Pilih Warna</h3>
+        <div class="color-picker-btn" style="background:var(--red)" onclick="resolveWild('red')"></div>
+        <div class="color-picker-btn" style="background:var(--green)" onclick="resolveWild('green')"></div>
+        <div class="color-picker-btn" style="background:var(--blue)" onclick="resolveWild('blue')"></div>
+        <div class="color-picker-btn" style="background:var(--yellow)" onclick="resolveWild('yellow')"></div>
+    </div>
+</div>
+
+<!-- GAME UI -->
+<div id="game-layout">
+    <div id="main-area">
+        <div id="turn-indicator">Menunggu...</div>
+        <div id="direction-indicator">↻</div>
+        
+        <div id="ai-zone" class="zone">
+            <!-- AI Hands -->
+        </div>
+
+        <div id="table-zone" class="zone">
+            <div id="draw-pile" class="card card-back" onclick="playerDraw()">
+                <div class="card-inner">UNO</div>
+            </div>
+            <div id="discard-pile">
+                <!-- Top card -->
+            </div>
+        </div>
+
+        <!-- NEW: Floating Button for Combo Play -->
+        <button id="confirm-move-btn" onclick="submitMove()">Mainkan Kartu</button>
+
+        <div id="player-zone" class="zone">
+            <!-- Player cards -->
+        </div>
+
+        <button id="uno-btn" onclick="toggleUno()">UNO!</button>
+    </div>
+
+    <div id="sidebar">
+        <h3>Game Status</h3>
+        <p>Arah: <span id="status-direction">Clockwise</span></p>
+        <p>Warna: <span id="status-color" style="font-weight:bold">-</span></p>
+        <p>Stack Draw: <span id="status-stack" style="font-size: 24px; color: var(--red);">0</span></p>
+        <hr>
+        <button class="btn btn-danger" onclick="location.reload()">Reset Game</button>
+        <h4>Game Log</h4>
+        <div id="log-container"></div>
+    </div>
+</div>
+
+<script>
+/**
+ * UNO GAME ENGINE (INFLATION + COMBO EDITION)
+ * UI: Version 1 (Restored)
+ * Features: +100 Cards, Multi-select Combo
+ */
+
+const COLORS = ['red', 'green', 'blue', 'yellow'];
+const SPECIALS = ['skip', 'reverse', 'draw2'];
+const WILDS = ['wild', 'wild4', 'draw100']; // Added draw100
+
+class Utils {
+    static sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+    static random(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+}
+
+class Card {
+    constructor(color, value, type) {
+        this.color = color; 
+        this.value = value; 
+        this.type = type;   
+        this.tempColor = null; 
+        this.id = Math.random().toString(36).substr(2, 9);
+    }
+
+    getDisplayColor() { return this.tempColor || this.color; }
+
+    getSymbol() {
+        if (this.type === 'number') return this.value;
+        if (this.type === 'skip') return '⊘';
+        if (this.type === 'reverse') return '⇄';
+        if (this.type === 'draw2') return '+2';
+        if (this.type === 'wild') return '🌈';
+        if (this.type === 'wild4') return '+4';
+        if (this.type === 'draw100') return '+100'; // New Symbol
+        return '?';
+    }
+
+    getScore() {
+        if (this.type === 'draw100') return 50;
+        if (this.type === 'wild4') return 20;
+        if (this.type === 'number') return 1;
+        return 5;
+    }
+}
+
+class Deck {
+    constructor() {
+        this.cards = [];
+        this.reset();
+    }
+
+    reset() {
+        this.cards = [];
+        for (let c of COLORS) {
+            this.cards.push(new Card(c, 0, 'number'));
+            for (let i = 1; i <= 9; i++) {
+                this.cards.push(new Card(c, i, 'number'));
+                this.cards.push(new Card(c, i, 'number'));
+            }
+            for (let s of SPECIALS) {
+                this.cards.push(new Card(c, null, s));
+                this.cards.push(new Card(c, null, s));
+            }
+        }
+        for (let i = 0; i < 4; i++) {
+            this.cards.push(new Card('black', null, 'wild'));
+            this.cards.push(new Card('black', null, 'wild4'));
+        }
+        // ADD INFLATION CARDS (4 cards)
+        for (let i = 0; i < 4; i++) {
+            this.cards.push(new Card('gold', null, 'draw100'));
+        }
+        this.shuffle();
+    }
+
+    shuffle() {
+        for (let i = this.cards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [this.cards[i], this.cards[j]] = [this.cards[j], this.cards[i]];
+        }
+    }
+
+    draw() {
+        if (this.cards.length === 0) return null; 
+        return this.cards.pop();
+    }
+}
+
+class Player {
+    constructor(name, id) {
+        this.name = name;
+        this.id = id;
+        this.hand = [];
+        this.isAi = false;
+        this.saidUno = false;
+    }
+
+    receiveCard(card) {
+        this.hand.push(card);
+        this.saidUno = false;
+    }
+
+    removeCards(indices) {
+        // Remove multiple cards at once
+        indices.sort((a, b) => b - a);
+        const removed = [];
+        indices.forEach(idx => {
+            removed.push(this.hand.splice(idx, 1)[0]);
+        });
+        return removed.reverse(); // Return in order
+    }
+}
+
+class AIPlayer extends Player {
+    constructor(name, id, difficulty) {
+        super(name, id);
+        this.isAi = true;
+        this.difficulty = difficulty;
+    }
+
+    async decideMove(topCard, currentColor, drawStack) {
+        await Utils.sleep(this.difficulty === 'easy' ? 1000 : 1500);
+
+        // AI Strategy Logic (Simplified for stability, supports Combo)
+        for (let i = 0; i < this.hand.length; i++) {
+            const card = this.hand[i];
+            let isValid = false;
+
+            // Check against table
+            if (drawStack > 0) {
+                 if (card.type === 'draw100' || 
+                    (card.type === 'draw2' && topCard.type === 'draw2') ||
+                    (card.type === 'wild4' && topCard.type === 'wild4')) isValid = true;
+            } else {
+                if (card.color === 'black' || card.color === 'gold') isValid = true;
+                else if (card.color === currentColor) isValid = true;
+                else if (card.value !== null && card.value === topCard.value) isValid = true;
+                else if (card.type !== 'number' && card.type === topCard.type) isValid = true;
+            }
+
+            if (isValid) {
+                // Find Combo (Matching symbol/value)
+                const combo = [i];
+                if (this.difficulty === 'hard') {
+                    for (let j = 0; j < this.hand.length; j++) {
+                        if (i === j) continue;
+                        const other = this.hand[j];
+                        let match = false;
+                        if (card.type === 'number' && other.type === 'number' && card.value === other.value) match = true;
+                        else if (card.type !== 'number' && card.type === other.type) match = true;
+                        if (match) combo.push(j);
+                    }
+                }
+                return combo;
+            }
+        }
+        return null; // Must draw
+    }
+
+    pickColor() {
+        const counts = { red:0, green:0, blue:0, yellow:0 };
+        this.hand.forEach(c => { if(COLORS.includes(c.color)) counts[c.color]++; });
+        return Object.keys(counts).reduce((a, b) => counts[a] > counts[b] ? a : b);
+    }
+}
+
+class GameEngine {
+    constructor() {
+        this.deck = new Deck();
+        this.players = [];
+        this.discardPile = [];
+        this.currentPlayerIndex = 0;
+        this.direction = 1; 
+        this.drawStack = 0; 
+        this.gameActive = false;
+        this.currentColor = null;
+    }
+
+    init(humanName, aiCount, aiDifficulty) {
+        this.players = [new Player(humanName, 0)];
+        for (let i = 1; i <= aiCount; i++) {
+            this.players.push(new AIPlayer(`Bot ${i}`, i, aiDifficulty));
+        }
+        
+        this.deck.reset();
+        for (let i = 0; i < 7; i++) {
+            this.players.forEach(p => p.receiveCard(this.deck.draw()));
+        }
+
+        let startCard;
+        do {
+            startCard = this.deck.draw();
+            this.discardPile.push(startCard);
+        } while (startCard.color === 'black' || startCard.color === 'gold' || startCard.type !== 'number');
+
+        this.currentColor = startCard.color;
+        this.gameActive = true;
+        
+        ui.renderAll(this);
+        GameLogger.log(`Game dimulai. Kartu: ${startCard.color.toUpperCase()} ${startCard.value}`);
+        
+        this.runTurn();
+    }
+
+    getNextPlayerIndex(offset = 1) {
+        let idx = (this.currentPlayerIndex + (this.direction * offset)) % this.players.length;
+        if (idx < 0) idx += this.players.length;
+        return idx;
+    }
+
+    async runTurn() {
+        if (!this.gameActive) return;
+
+        const player = this.players[this.currentPlayerIndex];
+        const topCard = this.discardPile[this.discardPile.length - 1];
+
+        ui.updateStatus(this);
+        ui.highlightCurrentPlayer(this.currentPlayerIndex);
+
+        if (player.isAi) {
+            const indices = await player.decideMove(topCard, this.currentColor, this.drawStack);
+            if (indices) {
+                // Handle Wild Color for AI
+                const first = player.hand[indices[0]];
+                if (first.color === 'black' || first.color === 'gold') {
+                    first.tempColor = player.pickColor();
+                }
+                this.executeMove(player, indices);
+            } else {
+                this.handleDraw(player);
+            }
+        } else {
+            ui.enableHumanInteraction(true);
+        }
+    }
+
+    // HUMAN: Validate selected cards
+    validateMove(indices) {
+        if (indices.length === 0) return false;
+        const player = this.players[this.currentPlayerIndex];
+        const topCard = this.discardPile[this.discardPile.length - 1];
+        
+        const first = player.hand[indices[0]];
+
+        // 1. Verify all selected cards match each other (Combo Rule)
+        for (let i = 1; i < indices.length; i++) {
+            const other = player.hand[indices[i]];
+            let match = false;
+            if (first.type === 'number' && other.type === 'number' && first.value === other.value) match = true;
+            else if (first.type !== 'number' && first.type === other.type) match = true;
+            if (!match) return false;
+        }
+
+        // 2. Verify first card against table
+        if (this.drawStack > 0) {
+            // Stacking Logic
+            if (first.type === 'draw100') return true;
+            if (first.type === 'draw2' && topCard.type === 'draw2') return true;
+            if (first.type === 'wild4' && topCard.type === 'wild4') return true;
+            return false;
+        } else {
+            // Normal Logic
+            if (first.color === 'black' || first.color === 'gold') return true;
+            if (first.color === this.currentColor) return true;
+            if (first.value !== null && first.value === topCard.value) return true;
+            if (first.type !== 'number' && first.type === topCard.type) return true;
+            if (this.currentColor === first.color) return true; // Matches wild color
+            return false;
+        }
+    }
+
+    executeMove(player, indices) {
+        ui.enableHumanInteraction(false); 
+        
+        const cardsPlayed = player.removeCards(indices);
+        
+        // Push all to discard
+        cardsPlayed.forEach(c => this.discardPile.push(c));
+        const lastCard = cardsPlayed[cardsPlayed.length-1];
+        this.currentColor = lastCard.getDisplayColor();
+
+        // UI Updates with Animation
+        ui.renderDiscard(lastCard); 
+        ui.renderHand(player); 
+
+        // Log
+        let logMsg = `${player.name} memainkan ${indices.length}x ${lastCard.getSymbol()}`;
+        if (lastCard.type === 'draw100') logMsg += " [INFLASI!]";
+        GameLogger.log(logMsg);
+
+        // Win
+        if (player.hand.length === 0) {
+            alert(`${player.name} Menang!`);
+            this.gameActive = false;
+            return;
+        }
+
+        // Apply Effects
+        let skipSteps = 0;
+        cardsPlayed.forEach(c => {
+            if (c.type === 'draw100') { this.drawStack += 100; }
+            else if (c.type === 'wild4') { this.drawStack += 4; }
+            else if (c.type === 'draw2') { this.drawStack += 2; }
+            else if (c.type === 'skip') { skipSteps++; }
+            else if (c.type === 'reverse') {
+                this.direction *= -1;
+                ui.updateDirection(this.direction);
+                if (this.players.length === 2) skipSteps++;
+            }
+        });
+
+        // Next Turn
+        let steps = 1 + skipSteps;
+        let nextIdx = this.currentPlayerIndex;
+        for(let i=0; i<steps; i++) {
+            nextIdx = (nextIdx + this.direction) % this.players.length;
+            if (nextIdx < 0) nextIdx += this.players.length;
+        }
+        this.currentPlayerIndex = nextIdx;
+
+        setTimeout(() => this.runTurn(), 1000);
+    }
+
+    handleDraw(player) {
+        ui.enableHumanInteraction(false);
+        let amount = this.drawStack > 0 ? this.drawStack : 1;
+        GameLogger.log(`${player.name} mengambil ${amount} kartu.`);
+        
+        // Fast Draw Logic for +100 to avoid freezing
+        const drawn = [];
+        for (let i = 0; i < amount; i++) {
+            let c = this.deck.draw();
+            if (!c) {
+                 const top = this.discardPile.pop();
+                 this.deck.cards = this.discardPile;
+                 this.discardPile = [top];
+                 this.deck.shuffle();
+                 c = this.deck.draw();
+            }
+            if(c) player.receiveCard(c);
+        }
+
+        this.drawStack = 0;
+        ui.renderHand(player);
+        this.currentPlayerIndex = this.getNextPlayerIndex();
+        setTimeout(() => this.runTurn(), 800);
+    }
+    
+    forceDraw(player, amount) {
+        for(let i=0; i<amount; i++) {
+            const c = this.deck.draw();
+            if(c) player.receiveCard(c);
+        }
+        ui.renderHand(player);
+    }
+}
+
+// --- UI MANAGER (Restored V1 Style with Selection) ---
+
+class UIManager {
+    constructor() {
+        this.selectedIndices = new Set();
+        this.cardContainer = document.getElementById('player-zone');
+        this.discardContainer = document.getElementById('discard-pile');
+        this.aiContainer = document.getElementById('ai-zone');
+        this.confirmBtn = document.getElementById('confirm-move-btn');
+    }
+
+    renderAll(game) {
+        this.renderDiscard(game.discardPile[game.discardPile.length-1]);
+        this.renderHand(game.players[0]);
+        this.renderAI(game);
+        this.updateStatus(game);
+    }
+
+    renderDiscard(card) {
+        this.discardContainer.innerHTML = '';
+        const el = this.createCardEl(card);
+        el.classList.add('played-anim'); // Add animation
+        this.discardContainer.appendChild(el);
+    }
+
+    renderHand(player) {
+        this.selectedIndices.clear();
+        this.updateConfirmButton();
+        
+        if (player.isAi) {
+            this.renderAI(gameEngine);
+            return;
+        }
+        
+        this.cardContainer.innerHTML = '';
+        player.hand.forEach((card, index) => {
+            const el = this.createCardEl(card);
+            el.onclick = () => this.toggleSelection(index, el);
+            this.cardContainer.appendChild(el);
+        });
+    }
+
+    toggleSelection(index, el) {
+        if (el.classList.contains('disabled')) return;
+
+        if (this.selectedIndices.has(index)) {
+            this.selectedIndices.delete(index);
+            el.classList.remove('selected');
+        } else {
+            // Validate Combo Consistency (Must match first selected card)
+            if (this.selectedIndices.size > 0) {
+                const firstIdx = Array.from(this.selectedIndices)[0];
+                const firstCard = gameEngine.players[0].hand[firstIdx];
+                const newCard = gameEngine.players[0].hand[index];
+                
+                let match = false;
+                if (firstCard.type === 'number' && newCard.type === 'number' && firstCard.value === newCard.value) match = true;
+                else if (firstCard.type !== 'number' && firstCard.type === newCard.type) match = true;
+                
+                if (!match) {
+                    // Wiggle effect for invalid combo selection
+                    el.style.transform = "translateX(5px)";
+                    setTimeout(() => el.style.transform = "none", 100);
+                    return; 
+                }
+            }
+            this.selectedIndices.add(index);
+            el.classList.add('selected');
+        }
+        this.updateConfirmButton();
+    }
+
+    updateConfirmButton() {
+        const indices = Array.from(this.selectedIndices);
+        const isValid = gameEngine.validateMove(indices);
+        
+        if (isValid) {
+            this.confirmBtn.style.display = 'block';
+            this.confirmBtn.innerText = `Mainkan (${indices.length})`;
+        } else {
+            this.confirmBtn.style.display = 'none';
+        }
+    }
+
+    createCardEl(card) {
+        const el = document.createElement('div');
+        el.className = 'card';
+        el.setAttribute('data-color', card.getDisplayColor());
+        
+        const inner = document.createElement('div');
+        inner.className = 'card-inner';
+        inner.innerText = card.getSymbol();
+        
+        // Special styles for special cards
+        if (card.type === 'wild' || card.type === 'wild4') {
+             inner.style.background = 'conic-gradient(red, yellow, green, blue)';
+             inner.style.webkitBackgroundClip = 'text';
+             inner.style.color = 'transparent';
+        }
+        
+        if (card.type === 'draw100') {
+             // Style for Inflation Card
+             el.style.border = "3px solid #ffcc00";
+        }
+
+        el.appendChild(inner);
+        return el;
+    }
+
+    renderAI(game) {
+        this.aiContainer.innerHTML = '';
+        game.players.forEach((p, idx) => {
+            if (!p.isAi) return;
+            const aiWrap = document.createElement('div');
+            aiWrap.className = 'ai-hand';
+            aiWrap.innerHTML = `<strong>${p.name}</strong> (${p.hand.length})`;
+            const cardWrap = document.createElement('div');
+            cardWrap.className = 'ai-hand-cards';
+            p.hand.forEach(c => {
+                const cEl = document.createElement('div');
+                cEl.className = `card ai-card card-back`;
+                if (c.color === 'gold') cEl.style.border = "2px solid gold"; // Hint if AI has gold
+                cardWrap.appendChild(cEl);
+            });
+            aiWrap.appendChild(cardWrap);
+            if (idx === game.currentPlayerIndex) aiWrap.style.border = "2px solid yellow";
+            this.aiContainer.appendChild(aiWrap);
+        });
+    }
+
+    updateStatus(game) {
+        document.getElementById('status-direction').innerText = game.direction === 1 ? "Searah Jarum Jam" : "Berlawanan";
+        const cEl = document.getElementById('status-color');
+        const c = game.currentColor;
+        cEl.innerText = (c === 'gold' ? 'GOLD' : c).toUpperCase();
+        cEl.style.color = c === 'black' ? 'white' : (c === 'gold' ? 'gold' : `var(--${c})`);
+        document.getElementById('status-stack').innerText = game.drawStack;
+    }
+
+    updateDirection(dir) {
+        const el = document.getElementById('direction-indicator');
+        el.style.transform = dir === 1 ? "scaleX(1)" : "scaleX(-1)";
+    }
+
+    highlightCurrentPlayer(index) {
+        const pName = gameEngine.players[index].name;
+        document.getElementById('turn-indicator').innerText = `Giliran: ${pName}`;
+        this.renderAI(gameEngine);
+    }
+
+    enableHumanInteraction(enable) {
+        const cards = document.querySelectorAll('#player-zone .card');
+        cards.forEach(c => {
+            if (enable) c.classList.remove('disabled');
+            else c.classList.add('disabled');
+            c.style.pointerEvents = enable ? 'auto' : 'none';
+        });
+        const pile = document.getElementById('draw-pile');
+        pile.style.pointerEvents = enable ? 'auto' : 'none';
+        
+        if(!enable) this.confirmBtn.style.display = 'none';
+    }
+
+    showColorPicker(callback) {
+        const modal = document.getElementById('color-modal');
+        modal.style.display = 'flex';
+        window.resolveWild = (color) => {
+            modal.style.display = 'none';
+            callback(color);
+        };
+    }
+}
+
+class GameLogger {
+    static log(msg, important = false) {
+        const box = document.getElementById('log-container');
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${important ? 'important' : ''}`;
+        entry.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        box.prepend(entry);
+    }
+}
+
+// --- GLOBAL INIT ---
+let gameEngine;
+let ui;
+
+function initGame() {
+    document.getElementById('setup-modal').style.display = 'none';
+    const aiCount = parseInt(document.getElementById('ai-count').value);
+    const diff = document.getElementById('ai-difficulty').value;
+
+    gameEngine = new GameEngine();
+    ui = new UIManager();
+    gameEngine.init("Anda", aiCount, diff);
+}
+
+function playerDraw() {
+    // Jika ada kartu terpilih, batalkan selection dulu
+    if (ui.selectedIndices.size > 0) {
+        ui.selectedIndices.clear();
+        ui.renderHand(gameEngine.players[0]);
+        return;
+    }
+    gameEngine.handleDraw(gameEngine.players[0]);
+}
+
+function submitMove() {
+    const indices = Array.from(ui.selectedIndices).sort((a, b) => a - b);
+    const p = gameEngine.players[0];
+    const first = p.hand[indices[0]];
+
+    // Check UNO logic before submit
+    if (p.hand.length - indices.length === 1 && !p.saidUno) {
+        const btn = document.getElementById('uno-btn');
+        if (!btn.classList.contains('active')) {
+            GameLogger.log("Lupa bilang UNO! Penalti +2.", true);
+            gameEngine.forceDraw(p, 2);
+        }
+    }
+
+    if (first.color === 'black' || first.color === 'gold') {
+        ui.showColorPicker((selectedColor) => {
+            // Apply color to all selected wilds
+            indices.forEach(idx => {
+                const card = p.hand[idx];
+                if(card.color === 'black' || card.color === 'gold') card.tempColor = selectedColor;
+            });
+            gameEngine.executeMove(p, indices);
+        });
+    } else {
+        gameEngine.executeMove(p, indices);
+    }
+}
+
+function toggleUno() {
+    const btn = document.getElementById('uno-btn');
+    const p = gameEngine.players[0];
+    p.saidUno = !p.saidUno;
+    if (p.saidUno) btn.classList.add('active');
+    else btn.classList.remove('active');
+}
+
+</script>
+</body>
+</html>            flex: 3;
             display: flex;
             flex-direction: column;
             position: relative;
