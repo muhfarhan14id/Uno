@@ -10,19 +10,27 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* Efek outline hitam (meme style) untuk teks HTML */
+        /* Efek outline PUTIH (meme style baru) untuk teks HTML */
         .meme-text {
             font-family: "Arial Black", Arial, sans-serif;
             font-weight: 900;
             white-space: nowrap;
             touch-action: none; /* Mencegah layar ikut scroll saat drag di HP */
             text-shadow: 
-                -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000,
-                 0px  2px 0 #000, 2px  0px 0 #000,  0px -2px 0 #000, -2px 0px 0 #000;
+                -2px -2px 0 #FFF, 2px -2px 0 #FFF, -2px 2px 0 #FFF, 2px 2px 0 #FFF,
+                 0px  2px 0 #FFF, 2px  0px 0 #FFF,  0px -2px 0 #FFF, -2px 0px 0 #FFF;
         }
         
-        .draggable:hover, .draggable.dragging {
-            border: 2px dashed rgba(255, 255, 255, 0.8);
+        .draggable {
+            border: 2px dashed transparent;
+        }
+        .draggable:hover {
+            border: 2px dashed rgba(0, 0, 0, 0.3);
+        }
+        /* Penanda untuk teks yang sedang dipilih/diedit */
+        .selected-text {
+            border: 2px dashed rgba(0, 0, 0, 0.8) !important;
+            background-color: rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
@@ -32,7 +40,7 @@
         
         <!-- Sidebar Kontrol -->
         <div class="w-full md:w-80 bg-white p-6 border-b md:border-b-0 md:border-r border-gray-200 md:sticky md:top-0 md:h-screen md:overflow-y-auto flex-shrink-0 shadow-sm md:shadow-xl z-20">
-            <div class="flex items-center gap-3 mb-8 text-blue-600">
+            <div class="flex items-center gap-3 mb-6 text-blue-600">
                 <i class="fa-solid fa-image text-2xl"></i>
                 <h1 class="text-xl font-bold text-gray-800">Editor Foto</h1>
             </div>
@@ -43,45 +51,59 @@
                     <label class="text-sm font-semibold text-gray-700 flex items-center gap-2">
                         <i class="fa-solid fa-upload text-xs"></i> Unggah Foto
                     </label>
-                    <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                        <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                            <i class="fa-solid fa-cloud-arrow-up text-3xl mb-2 text-gray-400"></i>
-                            <p class="text-sm text-gray-500 font-medium">Klik untuk pilih foto</p>
+                    <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <div class="flex flex-col items-center justify-center pt-3 pb-4">
+                            <i class="fa-solid fa-cloud-arrow-up text-2xl mb-1 text-gray-400"></i>
+                            <p class="text-xs text-gray-500 font-medium">Klik untuk pilih foto</p>
                         </div>
                         <input type="file" id="imageInput" class="hidden" accept="image/*" />
                     </label>
                 </div>
 
-                <!-- Text Input Section -->
-                <div class="space-y-2">
-                    <label class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                        <i class="fa-solid fa-font text-xs"></i> Isi Teks
-                    </label>
-                    <input type="text" id="textInput" value="TEKS ANDA" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="Ketik teks di sini..." />
-                </div>
+                <!-- Kontrol Teks (Hanya aktif jika ada teks yang dipilih) -->
+                <div id="textControls" class="space-y-4 p-4 bg-gray-50 rounded-xl border border-gray-200 opacity-50 pointer-events-none transition-opacity">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fa-solid fa-pen-to-square text-gray-500"></i>
+                        <h3 class="text-sm font-bold text-gray-700">Edit Teks Terpilih</h3>
+                    </div>
 
-                <!-- Size Section -->
-                <div class="space-y-2">
-                    <label class="text-sm font-semibold text-gray-700 flex items-center justify-between">
-                        <span class="flex items-center gap-2">
-                            <i class="fa-solid fa-sliders text-xs"></i> Ukuran Teks
-                        </span>
-                        <span id="sizeValue" class="text-blue-600 bg-blue-50 px-2 py-1 rounded text-xs">40px</span>
-                    </label>
-                    <input type="range" id="sizeInput" min="10" max="200" value="40" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
-                </div>
+                    <!-- Text Input -->
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-gray-600">Isi Teks</label>
+                        <input type="text" id="textInput" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" placeholder="Ketik teks..." />
+                    </div>
 
-                <!-- Color Section -->
-                <div class="space-y-2">
-                    <label class="text-sm font-semibold text-gray-700">Warna Teks</label>
-                    <div class="flex items-center gap-3">
-                        <input type="color" id="colorInput" value="#FFFFFF" class="w-10 h-10 rounded cursor-pointer border-0 p-0" />
-                        <span id="colorValue" class="text-sm text-gray-500 uppercase">#FFFFFF</span>
+                    <!-- Size Section -->
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-gray-600 flex justify-between">
+                            <span>Ukuran</span>
+                            <span id="sizeValue" class="text-blue-600 font-bold">40px</span>
+                        </label>
+                        <input type="range" id="sizeInput" min="10" max="200" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                    </div>
+
+                    <!-- Color Section -->
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-gray-600">Warna Font</label>
+                        <div class="flex items-center gap-3 bg-white p-2 border border-gray-200 rounded-lg">
+                            <input type="color" id="colorInput" class="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                            <span id="colorValue" class="text-xs text-gray-500 uppercase font-mono">#000000</span>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Multiple Text Buttons -->
+                <div class="flex gap-2">
+                    <button id="addTextBtn" disabled class="flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg font-bold text-sm transition-all bg-gray-200 text-gray-400 cursor-not-allowed">
+                        <i class="fa-solid fa-plus"></i> Tambah
+                    </button>
+                    <button id="deleteTextBtn" disabled class="flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg font-bold text-sm transition-all bg-gray-200 text-gray-400 cursor-not-allowed">
+                        <i class="fa-solid fa-trash"></i> Hapus
+                    </button>
+                </div>
+
                 <!-- Download Button -->
-                <div class="pt-4 border-t border-gray-100">
+                <div class="pt-4 border-t border-gray-200">
                     <button id="downloadBtn" disabled class="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all bg-gray-200 text-gray-400 cursor-not-allowed">
                         <i class="fa-solid fa-download"></i> Unduh Hasil
                     </button>
@@ -90,21 +112,18 @@
         </div>
 
         <!-- Area Kerja (Canvas/Preview) -->
-        <div class="flex-1 p-4 md:p-8 flex flex-col items-center overflow-x-auto">
+        <div class="flex-1 p-4 md:p-8 flex flex-col items-center overflow-x-auto relative">
             
             <!-- Tampilan Saat Ada Foto -->
             <div id="workspace" class="hidden flex-col items-center w-full pb-10">
                 <div id="imageContainer" class="relative inline-block shadow-2xl bg-white border-2 border-gray-200" style="line-height: 0;">
                     <img id="uploadedImage" alt="Uploaded" class="block w-auto h-auto max-w-full pointer-events-none select-none" style="max-height: 85vh;" />
                     
-                    <div id="draggableText" class="draggable meme-text absolute cursor-move select-none border-2 border-dashed border-transparent p-1"
-                         style="left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 40px; color: #FFFFFF;">
-                        TEKS ANDA
-                    </div>
+                    <!-- Elemen teks akan di-inject ke sini oleh JavaScript -->
                 </div>
                 
                 <div class="mt-6 text-center text-gray-500 text-sm flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-arrows-up-down-left-right"></i> Sentuh dan tahan teks untuk memindahkannya
+                    <i class="fa-solid fa-hand-pointer"></i> Klik teks untuk memilih/mengedit, geser untuk memindahkan.
                 </div>
             </div>
 
@@ -112,7 +131,7 @@
             <div id="emptyState" class="mt-20 text-center text-gray-400 flex flex-col items-center">
                 <i class="fa-solid fa-image text-6xl mb-4 text-gray-300"></i>
                 <p class="text-xl font-semibold text-gray-500">Belum ada foto</p>
-                <p class="text-sm">Silakan unggah foto dari menu kontrol</p>
+                <p class="text-sm">Silakan unggah foto untuk mulai mengedit</p>
             </div>
 
         </div>
@@ -127,21 +146,31 @@
         const sizeValue = document.getElementById('sizeValue');
         const colorInput = document.getElementById('colorInput');
         const colorValue = document.getElementById('colorValue');
+        
         const downloadBtn = document.getElementById('downloadBtn');
+        const addTextBtn = document.getElementById('addTextBtn');
+        const deleteTextBtn = document.getElementById('deleteTextBtn');
+        const textControls = document.getElementById('textControls');
         
         const workspace = document.getElementById('workspace');
         const emptyState = document.getElementById('emptyState');
         const uploadedImage = document.getElementById('uploadedImage');
         const imageContainer = document.getElementById('imageContainer');
-        const draggableText = document.getElementById('draggableText');
 
-        // State variables
-        let textPosPct = { x: 50, y: 50 };
+        // State variables untuk Multiple Text
+        let textsData = [];
+        let activeTextId = null;
+        let textIdCounter = 0;
+        
+        // State variables untuk Dragging
         let isDragging = false;
         let dragStart = { x: 0, y: 0 };
-        let initialTextPos = { x: 0, y: 0 };
+        let dragTextId = null;
+        let initialPos = { x: 0, y: 0 };
 
-        // 1. Logika Unggah Foto
+        // ==========================================
+        // 1. LOGIKA UNGGAH FOTO & INISIALISASI
+        // ==========================================
         imageInput.addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
@@ -149,56 +178,192 @@
                 reader.onload = function(event) {
                     uploadedImage.src = event.target.result;
                     
-                    // Reset posisi teks ke tengah
-                    textPosPct = { x: 50, y: 50 };
-                    updateTextPosition();
+                    // Bersihkan teks sebelumnya jika ganti foto
+                    imageContainer.querySelectorAll('.draggable').forEach(el => el.remove());
+                    textsData = [];
+                    
+                    // Tambahkan 1 teks default
+                    addNewText('TEKS ANDA');
                     
                     // Tampilkan area kerja
                     emptyState.classList.add('hidden');
                     workspace.classList.remove('hidden');
                     workspace.classList.add('flex');
                     
-                    // Aktifkan tombol unduh
-                    downloadBtn.disabled = false;
-                    downloadBtn.className = "w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-200";
+                    // Aktifkan tombol-tombol
+                    enableButtons();
                 };
                 reader.readAsDataURL(file);
             }
         });
 
-        // 2. Logika Update Kontrol UI
+        function enableButtons() {
+            downloadBtn.disabled = false;
+            downloadBtn.className = "w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-bold transition-all bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-200";
+            
+            addTextBtn.disabled = false;
+            addTextBtn.className = "flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg font-bold text-sm transition-all bg-green-500 hover:bg-green-600 text-white shadow-md";
+        }
+
+        // ==========================================
+        // 2. MANAJEMEN MULTIPLE TEXT
+        // ==========================================
+        function addNewText(defaultString = 'TEKS BARU') {
+            textIdCounter++;
+            const newId = textIdCounter;
+            
+            // Default: Teks Hitam (#000000)
+            const textObj = {
+                id: newId,
+                text: defaultString,
+                x: 50,
+                y: 50,
+                size: 40,
+                color: '#000000' 
+            };
+            
+            textsData.push(textObj);
+            
+            // Buat Elemen HTML nya
+            const el = document.createElement('div');
+            el.id = `text-${newId}`;
+            el.className = 'draggable meme-text absolute cursor-move select-none p-2';
+            el.style.transform = 'translate(-50%, -50%)';
+            
+            // Pasang event listener untuk klik dan drag di elemen ini
+            el.addEventListener('pointerdown', function(e) {
+                startDrag(e, newId);
+            });
+            
+            imageContainer.appendChild(el);
+            
+            // Render dan langsung pilih teks yang baru dibuat
+            updateTextDOM(newId);
+            selectText(newId);
+        }
+
+        function removeActiveText() {
+            if (!activeTextId) return;
+            
+            // Hapus dari array state
+            textsData = textsData.filter(t => t.id !== activeTextId);
+            
+            // Hapus dari HTML
+            const el = document.getElementById(`text-${activeTextId}`);
+            if (el) el.remove();
+            
+            activeTextId = null;
+            
+            // Pilih teks lain jika masih ada, jika tidak, disable form
+            if (textsData.length > 0) {
+                selectText(textsData[textsData.length - 1].id);
+            } else {
+                disableForm();
+            }
+        }
+
+        function selectText(id) {
+            activeTextId = id;
+            const t = textsData.find(x => x.id === id);
+            if (!t) return;
+            
+            // 1. Update UI Input di Sidebar
+            textInput.value = t.text;
+            sizeInput.value = t.size;
+            sizeValue.textContent = `${t.size}px`;
+            colorInput.value = t.color;
+            colorValue.textContent = t.color.toUpperCase();
+            
+            // 2. Tampilkan Form (Hapus efek disabled)
+            textControls.classList.remove('opacity-50', 'pointer-events-none');
+            
+            // 3. Aktifkan tombol hapus
+            deleteTextBtn.disabled = false;
+            deleteTextBtn.className = "flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg font-bold text-sm transition-all bg-red-500 hover:bg-red-600 text-white shadow-md";
+
+            // 4. Update Garis Pilihan (Border) di area gambar
+            document.querySelectorAll('.draggable').forEach(el => el.classList.remove('selected-text'));
+            const activeEl = document.getElementById(`text-${id}`);
+            if (activeEl) activeEl.classList.add('selected-text');
+        }
+
+        function disableForm() {
+            textControls.classList.add('opacity-50', 'pointer-events-none');
+            textInput.value = '';
+            
+            deleteTextBtn.disabled = true;
+            deleteTextBtn.className = "flex-1 flex items-center justify-center gap-2 py-2 px-2 rounded-lg font-bold text-sm transition-all bg-gray-200 text-gray-400 cursor-not-allowed";
+        }
+
+        function updateTextDOM(id) {
+            const t = textsData.find(x => x.id === id);
+            const el = document.getElementById(`text-${id}`);
+            if (!t || !el) return;
+            
+            el.textContent = t.text || ' ';
+            el.style.left = `${t.x}%`;
+            el.style.top = `${t.y}%`;
+            el.style.fontSize = `${t.size}px`;
+            el.style.color = t.color;
+        }
+
+        // ==========================================
+        // 3. EVENT LISTENER KONTROL & TOMBOL
+        // ==========================================
+        addTextBtn.addEventListener('click', () => addNewText());
+        deleteTextBtn.addEventListener('click', () => removeActiveText());
+
         textInput.addEventListener('input', function(e) {
-            draggableText.textContent = e.target.value || ' ';
+            if (!activeTextId) return;
+            const t = textsData.find(x => x.id === activeTextId);
+            t.text = e.target.value;
+            updateTextDOM(activeTextId);
         });
 
         sizeInput.addEventListener('input', function(e) {
+            if (!activeTextId) return;
             const size = e.target.value;
-            draggableText.style.fontSize = `${size}px`;
+            const t = textsData.find(x => x.id === activeTextId);
+            t.size = parseInt(size);
             sizeValue.textContent = `${size}px`;
+            updateTextDOM(activeTextId);
         });
 
         colorInput.addEventListener('input', function(e) {
+            if (!activeTextId) return;
             const color = e.target.value;
-            draggableText.style.color = color;
+            const t = textsData.find(x => x.id === activeTextId);
+            t.color = color;
             colorValue.textContent = color.toUpperCase();
+            updateTextDOM(activeTextId);
         });
 
-        // 3. Logika Drag and Drop (Mouse & Touch)
-        function updateTextPosition() {
-            draggableText.style.left = `${textPosPct.x}%`;
-            draggableText.style.top = `${textPosPct.y}%`;
+        // Klik di area kosong gambar untuk deselect
+        imageContainer.addEventListener('pointerdown', function(e) {
+            if (e.target === uploadedImage) {
+                document.querySelectorAll('.draggable').forEach(el => el.classList.remove('selected-text'));
+                activeTextId = null;
+                disableForm();
+            }
+        });
+
+        // ==========================================
+        // 4. LOGIKA DRAG & DROP
+        // ==========================================
+        function startDrag(e, id) {
+            e.preventDefault(); 
+            selectText(id); 
+            
+            isDragging = true;
+            dragTextId = id;
+            dragStart = { x: e.clientX, y: e.clientY };
+            
+            const t = textsData.find(x => x.id === id);
+            initialPos = { x: t.x, y: t.y };
         }
 
-        draggableText.addEventListener('pointerdown', function(e) {
-            e.preventDefault(); // Hindari default behavior browser
-            isDragging = true;
-            draggableText.classList.add('dragging');
-            dragStart = { x: e.clientX, y: e.clientY };
-            initialTextPos = { x: textPosPct.x, y: textPosPct.y };
-        });
-
         window.addEventListener('pointermove', function(e) {
-            if (!isDragging) return;
+            if (!isDragging || !dragTextId) return;
             
             const rect = imageContainer.getBoundingClientRect();
             if (rect.width === 0 || rect.height === 0) return;
@@ -206,66 +371,69 @@
             const dx = e.clientX - dragStart.x;
             const dy = e.clientY - dragStart.y;
             
-            // Konversi pergerakan pixel ke persentase gambar
             const pctX = (dx / rect.width) * 100;
             const pctY = (dy / rect.height) * 100;
             
-            textPosPct = {
-                x: initialTextPos.x + pctX,
-                y: initialTextPos.y + pctY
-            };
+            const t = textsData.find(x => x.id === dragTextId);
+            t.x = initialPos.x + pctX;
+            t.y = initialPos.y + pctY;
             
-            updateTextPosition();
+            updateTextDOM(dragTextId);
         });
 
         window.addEventListener('pointerup', function() {
-            if (isDragging) {
-                isDragging = false;
-                draggableText.classList.remove('dragging');
-            }
+            isDragging = false;
+            dragTextId = null;
         });
 
-        // 4. Logika Unduh Gambar (Menggabungkan Gambar + Teks via Canvas)
+        // ==========================================
+        // 5. PROSES RENDER CANVAS & UNDUH
+        // ==========================================
         downloadBtn.addEventListener('click', function() {
             if (!uploadedImage.src) return;
 
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            // Ukuran canvas murni menggunakan resolusi asli gambar
+            // Resolusi asli gambar
             canvas.width = uploadedImage.naturalWidth;
             canvas.height = uploadedImage.naturalHeight;
 
-            // Gambar foto
+            // Render gambar background
             ctx.drawImage(uploadedImage, 0, 0);
 
-            // Perhitungan skala ukuran font
-            const currentFontSize = parseInt(sizeInput.value);
+            // Rasio skala untuk menyesuaikan ukuran teks web -> gambar asli
             const displayWidth = uploadedImage.clientWidth;
             const scale = canvas.width / displayWidth;
-            const scaledFontSize = currentFontSize * scale;
 
-            // Pengaturan gaya font pada canvas
-            ctx.font = `900 ${scaledFontSize}px "Arial Black", Arial, sans-serif`;
-            ctx.fillStyle = colorInput.value;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.lineJoin = 'round';
+            // Loop dan render semua teks yang ada di array
+            textsData.forEach(t => {
+                // Lewati jika kosong
+                if (!t.text || t.text.trim() === '') return;
 
-            // Outline / Stroke Teks (Tebal)
-            ctx.lineWidth = scaledFontSize * 0.15;
-            ctx.strokeStyle = 'black';
+                const scaledFontSize = t.size * scale;
 
-            // Hitung posisi x dan y (dari persentase ke resolusi asli)
-            const finalX = (textPosPct.x / 100) * canvas.width;
-            const finalY = (textPosPct.y / 100) * canvas.height;
+                // Styling text
+                ctx.font = `900 ${scaledFontSize}px "Arial Black", Arial, sans-serif`;
+                ctx.fillStyle = t.color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.lineJoin = 'round';
 
-            // Terapkan ke Canvas: Outline dahulu, baru isi dengan warna
-            const textToDraw = textInput.value;
-            ctx.strokeText(textToDraw, finalX, finalY);
-            ctx.fillText(textToDraw, finalX, finalY);
+                // GARIS TEPI (OUTLINE) PUTIH
+                ctx.lineWidth = scaledFontSize * 0.15;
+                ctx.strokeStyle = '#FFFFFF';
 
-            // Unduh file
+                // Koordinat X & Y
+                const finalX = (t.x / 100) * canvas.width;
+                const finalY = (t.y / 100) * canvas.height;
+
+                // Terapkan ke Canvas: Draw outline (putih) dulu, lalu fill (warna font)
+                ctx.strokeText(t.text, finalX, finalY);
+                ctx.fillText(t.text, finalX, finalY);
+            });
+
+            // Eksekusi download
             const dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.download = 'foto-meme-edit.png';
