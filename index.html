@@ -76,10 +76,27 @@
                     <!-- Size Section -->
                     <div class="space-y-1">
                         <label class="text-xs font-semibold text-gray-600 flex justify-between">
-                            <span>Ukuran</span>
-                            <span id="sizeValue" class="text-blue-600 font-bold">40px</span>
+                            <span>Ukuran (pt)</span>
+                            <span id="sizeValue" class="text-blue-600 font-bold">40pt</span>
                         </label>
                         <input type="range" id="sizeInput" min="10" max="200" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                    </div>
+
+                    <!-- Position Section (Baru) -->
+                    <div class="space-y-1">
+                        <label class="text-xs font-semibold text-gray-600">Posisi X & Y (%)</label>
+                        <div class="flex gap-2">
+                            <div class="flex-1 flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+                                <button id="btnMinusX" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold border-r border-gray-300">-1</button>
+                                <input type="number" id="posXInput" class="w-full text-center text-sm outline-none font-mono" step="1" />
+                                <button id="btnPlusX" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold border-l border-gray-300">+1</button>
+                            </div>
+                            <div class="flex-1 flex items-center border border-gray-300 rounded-lg overflow-hidden bg-white">
+                                <button id="btnMinusY" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold border-r border-gray-300">-1</button>
+                                <input type="number" id="posYInput" class="w-full text-center text-sm outline-none font-mono" step="1" />
+                                <button id="btnPlusY" class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold border-l border-gray-300">+1</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Color Section -->
@@ -147,6 +164,14 @@
         const colorInput = document.getElementById('colorInput');
         const colorValue = document.getElementById('colorValue');
         
+        // Elemen Posisi Baru
+        const posXInput = document.getElementById('posXInput');
+        const posYInput = document.getElementById('posYInput');
+        const btnMinusX = document.getElementById('btnMinusX');
+        const btnPlusX = document.getElementById('btnPlusX');
+        const btnMinusY = document.getElementById('btnMinusY');
+        const btnPlusY = document.getElementById('btnPlusY');
+
         const downloadBtn = document.getElementById('downloadBtn');
         const addTextBtn = document.getElementById('addTextBtn');
         const deleteTextBtn = document.getElementById('deleteTextBtn');
@@ -270,9 +295,13 @@
             // 1. Update UI Input di Sidebar
             textInput.value = t.text;
             sizeInput.value = t.size;
-            sizeValue.textContent = `${t.size}px`;
+            sizeValue.textContent = `${t.size}pt`;
             colorInput.value = t.color;
             colorValue.textContent = t.color.toUpperCase();
+            
+            // Update UI Input Posisi
+            posXInput.value = t.x.toFixed(1);
+            posYInput.value = t.y.toFixed(1);
             
             // 2. Tampilkan Form (Hapus efek disabled)
             textControls.classList.remove('opacity-50', 'pointer-events-none');
@@ -303,7 +332,7 @@
             el.textContent = t.text || ' ';
             el.style.left = `${t.x}%`;
             el.style.top = `${t.y}%`;
-            el.style.fontSize = `${t.size}px`;
+            el.style.fontSize = `${t.size}pt`;
             el.style.color = t.color;
         }
 
@@ -325,7 +354,7 @@
             const size = e.target.value;
             const t = textsData.find(x => x.id === activeTextId);
             t.size = parseInt(size);
-            sizeValue.textContent = `${size}px`;
+            sizeValue.textContent = `${size}pt`;
             updateTextDOM(activeTextId);
         });
 
@@ -337,6 +366,23 @@
             colorValue.textContent = color.toUpperCase();
             updateTextDOM(activeTextId);
         });
+
+        // Event Listener untuk Posisi (Manual Input & Nudge +/- 1 seperti Microsoft Word)
+        function updatePositionFromInput() {
+            if (!activeTextId) return;
+            const t = textsData.find(x => x.id === activeTextId);
+            t.x = parseFloat(posXInput.value) || 0;
+            t.y = parseFloat(posYInput.value) || 0;
+            updateTextDOM(activeTextId);
+        }
+
+        posXInput.addEventListener('input', updatePositionFromInput);
+        posYInput.addEventListener('input', updatePositionFromInput);
+
+        btnMinusX.addEventListener('click', () => { if(activeTextId) { posXInput.value = (parseFloat(posXInput.value) - 1).toFixed(1); updatePositionFromInput(); }});
+        btnPlusX.addEventListener('click', () => { if(activeTextId) { posXInput.value = (parseFloat(posXInput.value) + 1).toFixed(1); updatePositionFromInput(); }});
+        btnMinusY.addEventListener('click', () => { if(activeTextId) { posYInput.value = (parseFloat(posYInput.value) - 1).toFixed(1); updatePositionFromInput(); }});
+        btnPlusY.addEventListener('click', () => { if(activeTextId) { posYInput.value = (parseFloat(posYInput.value) + 1).toFixed(1); updatePositionFromInput(); }});
 
         // Klik di area kosong gambar untuk deselect
         imageContainer.addEventListener('pointerdown', function(e) {
@@ -378,6 +424,12 @@
             t.x = initialPos.x + pctX;
             t.y = initialPos.y + pctY;
             
+            // Sinkronisasi angka posisi di sidebar saat di-drag
+            if (activeTextId === dragTextId) {
+                posXInput.value = t.x.toFixed(1);
+                posYInput.value = t.y.toFixed(1);
+            }
+            
             updateTextDOM(dragTextId);
         });
 
@@ -413,15 +465,16 @@
 
                 const scaledFontSize = t.size * scale;
 
-                // Styling text
-                ctx.font = `900 ${scaledFontSize}px "Arial Black", Arial, sans-serif`;
+                // Styling text (diubah menggunakan pt)
+                ctx.font = `900 ${scaledFontSize}pt "Arial Black", Arial, sans-serif`;
                 ctx.fillStyle = t.color;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.lineJoin = 'round';
 
                 // GARIS TEPI (OUTLINE) PUTIH
-                ctx.lineWidth = scaledFontSize * 0.15;
+                // Konversi ketebalan (lineWidth canvas selalu pixel) dari pt (1pt ≈ 1.33px)
+                ctx.lineWidth = (scaledFontSize * 1.33) * 0.15;
                 ctx.strokeStyle = '#FFFFFF';
 
                 // Koordinat X & Y
